@@ -7,6 +7,9 @@ import texturePath from './texture/green.png';
 
 const ThreeScene = () => {
     const mountRef = useRef(null);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let model;
 
     useEffect(() => {
         const width = mountRef.current.clientWidth;
@@ -34,13 +37,13 @@ const ThreeScene = () => {
         const texture = textureLoader.load(texturePath);
 
         loader.load(path, (gltf) => {
-            const model = gltf.scene;
+            model = gltf.scene;
             model.traverse((child) => {
-                console.log(child)
                 if (child.isMesh) {
                     child.material.map = texture;  // Apply the texture
                     child.material.metalness = 0.1;  // Reduce metalness
                     child.material.roughness = 0.5;  // Adjust roughness
+                    child.material.transparent = true; // Enable transparency
                 }
             });
             scene.add(model);
@@ -76,10 +79,36 @@ const ThreeScene = () => {
 
         window.addEventListener('resize', handleResize);
 
+        // Handle mouse move
+        const onMouseMove = (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+                const hoveredObject = intersects[0].object;
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.material.opacity = (child === hoveredObject) ? 1 : 0.3;
+                    }
+                });
+            } else if (model) {
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.material.opacity = 1;
+                    }
+                });
+            }
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+
         // Cleanup function
         return () => {
             mountRef.current.removeChild(renderer.domElement);
             window.removeEventListener('resize', handleResize);
+            window.removeEventListener('mousemove', onMouseMove);
         };
     }, []);
 
